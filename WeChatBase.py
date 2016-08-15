@@ -1,29 +1,54 @@
-#!/usr/bin/env python
-# coding: utf-8
-import requests
-import xml.dom.minidom
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim:fenc=utf-8
+#
+# Copyright © 2016 n3xtchen <echenwen@gmail.com>
+#
+# Distributed under terms of the GPL-2.0 license.
+
+"""
+微信基础类
+"""
+
 import json
 import time
 import re
-import sys
 import os
 import random
 import logging
-from urllib import urlencode
 from collections import defaultdict
 from urlparse import urlparse
-from lxml import html
+from urllib import urlencode
 
+from lxml import html
+import xml.dom.minidom
+import qrcode
 # for media upload
 import mimetypes
 from requests_toolbelt.multipart.encoder import MultipartEncoder
+import requests
 
-from libs.util import _transcoding
-from extensions import QRCode, RequestWithCookie
+from WeChatBot.libs.util import _transcoding
+from WeChatBot.extensions import RequestWithCookie
 
-class WebWeChat(QRCode, RequestWithCookie):
+SYNC_HOST = [
+    'webpush.weixin.qq.com',
+    'webpush2.weixin.qq.com',
+    'webpush.wechat.com',
+    'webpush1.wechat.com',
+    'webpush2.wechat.com',
+    'webpush1.wechatapp.com',
+    # 'webpush.wechatapp.com'
+]
+
+
+class WebWeChat(RequestWithCookie):
+    """
+    web 微信的接口
+    """
 
     def __str__(self):
+        """ 基础信息 """
         description = \
             "=========================\n" + \
             "[#] Web Weixin\n" + \
@@ -38,6 +63,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return description
 
     def __init__(self):
+        """ 初始化 """
         self.DEBUG = False
         self.uuid = ''
         self.base_uri = ''
@@ -65,15 +91,17 @@ class WebWeChat(QRCode, RequestWithCookie):
         self.referer = 'https://wx.qq.com/'
         self.interactive = False
         self.autoOpen = False
+
+        # 文件保存
         self.saveFolder = os.path.join(os.getcwd(), 'saved')
-        self.saveSubFolders = {
-            'webwxgeticon': 'icons',
-            'webwxgetheadimg': 'headimgs',
-            'webwxgetmsgimg': 'msgimgs',
-            'webwxgetvideo': 'videos',
-            'webwxgetvoice': 'voices',
-            '_showQRCodeImg': 'qrcodes'
+        self.media_type = {
+            'icon': 'jpg',
+            'headimg': 'jpg',
+            'msgimg': 'jpg',
+            'video': 'mp4',
+            'voice': 'mp3'
         }
+
         self.appid = 'wx782c26e4c19acffb'
         self.lang = 'zh_CN'
         self.lastCheckTs = time.time()
@@ -89,12 +117,18 @@ class WebWeChat(QRCode, RequestWithCookie):
             'gh_22b87fa7cb3c', 'wxitil', 'userexperience_alarm',
             'notification_messages'
         ]
-        self.TimeOut = 20  # 同步最短时间间隔（单位：秒）
         self.media_count = -1
 
-        self.init_cookie()
+        self.init_cookie()  # 初始化 cookie
 
-    def loadConfig(self, config):
+    def __getattr__(self, name):
+        if not name.startswith('webwxget'):
+            raise AttributeError(name)
+        media_type = name[len("find_by_"):]
+        return lambda media_id:_get_meida(media_type, media_id)
+
+    def load_config(self, config):
+        """ 载入定制化配置 """
         if config['DEBUG']:
             self.DEBUG = config['DEBUG']
         if config['autoReplyMode']:
@@ -106,7 +140,8 @@ class WebWeChat(QRCode, RequestWithCookie):
         if config['autoOpen']:
             self.autoOpen = config['autoOpen']
 
-    def getUUID(self):
+    def get_uuid(self):
+        """ 获取用户ID """
         url = 'https://login.weixin.qq.com/jslogin'
         params = {
             'appid': self.appid,
@@ -123,7 +158,23 @@ class WebWeChat(QRCode, RequestWithCookie):
             return code == '200'
         return False
 
-    def waitForLogin(self, tip=1):
+    def get_qrcode(self, media_type):
+        """ 获取二维码 """
+        if media_type == "jpg":
+            url = 'https://login.weixin.qq.com/qrcode/' + self.uuid
+            params = {'t': 'webwx', '_': int(time.time())}
+            data = self._post(url, params, False)
+            QRCODE_PATH = self._save_file('qrcode.jpg', data, 'qrcodes')
+            return QRCODE_PATH
+        elif media_type == "str":
+            qr = qrcode.QRCode()
+            qr.border = 1
+            qr.add_data('https://login.weixin.qq.com/l/' + self.uuid)
+            mat = qr.get_matrix()
+            return mat
+
+    def wait_for_login(self, tip=1):
+        """ 等待登录 """
         time.sleep(tip)
         url = ('https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?tip=%s'
                '&uuid=%s&_=%s') % (tip, self.uuid, int(time.time()))
@@ -146,6 +197,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return False
 
     def login(self):
+        """ 登陆后获取相关信息 """
         data = self._get(self.redirect_uri)
         doc = xml.dom.minidom.parseString(data)
         root = doc.documentElement
@@ -172,6 +224,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return True
 
     def webwxinit(self):
+        """ 微信初始化 """
         url = self.base_uri + '/webwxinit?pass_ticket=%s&skey=%s&r=%s' % (
             self.pass_ticket, self.skey, int(time.time()))
         params = {
@@ -189,6 +242,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return dic['BaseResponse']['Ret'] == 0
 
     def webwxstatusnotify(self):
+        """ 状态通知 """
         url = self.base_uri + \
             '/webwxstatusnotify?lang=zh_CN&pass_ticket=%s' % (self.pass_ticket)
         params = {
@@ -203,6 +257,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return dic['BaseResponse']['Ret'] == 0
 
     def webwxgetcontact(self):
+        """ 获取通讯录 """
         SpecialUsers = self.SpecialUsers
         url = self.base_uri + '/webwxgetcontact?pass_ticket=%s&skey=%s&r=%s' % (
             self.pass_ticket, self.skey, int(time.time()))
@@ -233,6 +288,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return True
 
     def webwxbatchgetcontact(self):
+        """ 批量获取通讯录 """
         url = self.base_uri + \
             '/webwxbatchgetcontact?type=ex&r=%s&pass_ticket=%s' % (
                 int(time.time()), self.pass_ticket)
@@ -256,7 +312,8 @@ class WebWeChat(QRCode, RequestWithCookie):
                 self.GroupMemeberList.append(member)
         return True
 
-    def getNameById(self, id):
+    def get_name_by_id(self, id):
+        """ 通过ID获取用户名 """
         url = self.base_uri + \
             '/webwxbatchgetcontact?type=ex&r=%s&pass_ticket=%s' % (
                 int(time.time()), self.pass_ticket)
@@ -271,16 +328,8 @@ class WebWeChat(QRCode, RequestWithCookie):
         return dic['ContactList']
 
     def testsynccheck(self):
-        SyncHost = [
-            'webpush.weixin.qq.com',
-            'webpush2.weixin.qq.com',
-            'webpush.wechat.com',
-            'webpush1.wechat.com',
-            'webpush2.wechat.com',
-            'webpush1.wechatapp.com',
-            # 'webpush.wechatapp.com'
-        ]
-        for host in SyncHost:
+        """ 选择可用的同步服务器 """
+        for host in SYNC_HOST:
             self.syncHost = host
             [retcode, selector] = self.synccheck()
             if retcode == '0':
@@ -288,6 +337,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return False
 
     def synccheck(self):
+        """ 同步检查 """
         params = {
             'r': int(time.time()),
             'sid': self.sid,
@@ -307,6 +357,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return [retcode, selector]
 
     def webwxsync(self):
+        """ 同步检查成功后，获取信息 """
         url = self.base_uri + \
             '/webwxsync?sid=%s&skey=%s&pass_ticket=%s' % (
                 self.sid, self.skey, self.pass_ticket)
@@ -316,7 +367,7 @@ class WebWeChat(QRCode, RequestWithCookie):
             'rr': ~int(time.time())
         }
         dic = self._post(url, params)
-        logging.debug(json.dumps(dic, indent=4))
+        logging.debug(json.dumps(dic))
 
         if dic['BaseResponse']['Ret'] == 0:
             self.SyncKey = dic['SyncKey']
@@ -327,6 +378,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return dic
 
     def webwxsendmsg(self, word, to='filehelper'):
+        """ 发送信息 """
         url = self.base_uri + \
             '/webwxsendmsg?pass_ticket=%s' % (self.pass_ticket)
         clientMsgId = str(int(time.time() * 1000)) + \
@@ -349,6 +401,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return dic['BaseResponse']['Ret'] == 0
 
     def webwxuploadmedia(self, image_name):
+        """ 上传接口 """
         url = ('https://file2.wx.qq.com/cgi-bin/mmwebwx-bin/webwxuploadmedia?'
                'f=json')
         # 计数器
@@ -376,7 +429,7 @@ class WebWeChat(QRCode, RequestWithCookie):
             if item.name == 'webwx_data_ticket':
                 webwx_data_ticket = item.value
                 break
-        if (webwx_data_ticket == ''):
+        if webwx_data_ticket == '':
             return "None Fuck Cookie"
 
         uploadmediarequest = json.dumps({
@@ -407,8 +460,7 @@ class WebWeChat(QRCode, RequestWithCookie):
 
         headers = {
             'Host': 'file2.wx.qq.com',
-            'User-Agent': ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; '
-                           'rv:42.0) Gecko/20100101 Firefox/42.0'),
+            'User-Agent': self.user_agent,
             'Accept': ('text/html,application/xhtml+xml,application/xml;q=0.9,*/*'
                        ';q=0.8'),
             'Accept-Language': 'en-US,en;q=0.5',
@@ -428,6 +480,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return None
 
     def webwxsendmsgimg(self, user_id, media_id):
+        """ 发送图片 """
         url = ('https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxsendmsgimg?fun=async'
                '&f=json&pass_ticket=%s') % self.pass_ticket
         clientMsgId = str(int(time.time() * 1000)) + \
@@ -450,6 +503,7 @@ class WebWeChat(QRCode, RequestWithCookie):
         return dic['BaseResponse']['Ret'] == 0
 
     def webwxsendmsgemotion(self, user_id, media_id):
+        """ 发送表情 """
         url = ('https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxsendemoticon?fun=sys'
                '&f=json&pass_ticket=%s') % self.pass_ticket
         clientMsgId = str(int(time.time() * 1000)) + \
@@ -473,68 +527,47 @@ class WebWeChat(QRCode, RequestWithCookie):
         logging.debug(json.dumps(dic, indent=4))
         return dic['BaseResponse']['Ret'] == 0
 
-    def _saveFile(self, filename, data, api=None):
-        fn = filename
-        if self.saveSubFolders[api]:
-            dirName = os.path.join(self.saveFolder, self.saveSubFolders[api])
-            if not os.path.exists(dirName):
-                os.makedirs(dirName)
-            fn = os.path.join(dirName, filename)
-            logging.debug('Saved file: %s' % fn)
-            with open(fn, 'wb') as f:
-                f.write(data)
-                f.close()
+    def _save_file(self, filename, data, sub_dir):
+        """ 保存文件 """
+        dirName = os.path.join(self.saveFolder, sub_dir)
+        if not os.path.exists(dirName):
+            os.makedirs(dirName)
+        fn = os.path.join(dirName, filename)
+        logging.debug('Saved file: %s' % fn)
+        with open(fn, 'wb') as f:
+            f.write(data)
+            f.close()
         return fn
 
-    def webwxgeticon(self, id):
-        url = self.base_uri + \
-            '/webwxgeticon?username=%s&skey=%s' % (id, self.skey)
-        data = self._get(url)
-        fn = 'img_' + id + '.jpg'
-        return self._saveFile(fn, data, 'webwxgeticon')
+    def _get_meida(self, media_type, id):
+        """ 获取图片，声音或影片 """
 
-    def webwxgetheadimg(self, id):
-        url = self.base_uri + \
-            '/webwxgetheadimg?username=%s&skey=%s' % (id, self.skey)
-        data = self._get(url)
-        fn = 'img_' + id + '.jpg'
-        return self._saveFile(fn, data, 'webwxgetheadimg')
-
-    def webwxgetmsgimg(self, msgid):
-        url = self.base_uri + \
-            '/webwxgetmsgimg?MsgID=%s&skey=%s' % (msgid, self.skey)
-        data = self._get(url)
-        fn = 'img_' + msgid + '.jpg'
-        return self._saveFile(fn, data, 'webwxgetmsgimg')
-
-    # Not work now for weixin haven't support this API
-    def webwxgetvideo(self, msgid):
-        url = self.base_uri + \
-            '/webwxgetvideo?msgid=%s&skey=%s' % (msgid, self.skey)
-        data = self._get(url, (('Range', 'bytes=0-'),))
-        fn = 'video_' + msgid + '.mp4'
-        return self._saveFile(fn, data, 'webwxgetvideo')
-
-    def webwxgetvoice(self, msgid):
-        url = self.base_uri + \
-            '/webwxgetvoice?msgid=%s&skey=%s' % (msgid, self.skey)
-        data = self._get(url)
-        fn = 'voice_' + msgid + '.mp3'
-        return self._saveFile(fn, data, 'webwxgetvoice')
+        if media_type in self.media_type:
+            url = self.base_uri + \
+                '/webwxget{}?username={}&skey={}'.format(media_type, id, self.skey)
+            if media_type in ['video', 'voice']:
+                data = self._get(url, headers)
+            else:
+                data = self._get(url)
+            fn = 'img_' + id + '.' + self.media_type[media_type]
+            return self._save_file(fn, data, media_type+'s')
+        else:
+            logging.debug("不存在该媒体类型: %s" % media_type)
 
     def _searchContent(self, key, content, fmat='attr'):
         """ 地理位置 """
         if fmat == 'attr':
-            pm = re.search(key + '\s?=\s?"([^"<]+)"', content)
+            pm = re.search(key + r'\s?=\s?"([^"<]+)"', content)
             if pm:
                 return pm.group(1)
         elif fmat == 'xml':
-            pm = re.search('<{0}>([^<]+)</{0}>'.format(key), content)
+            pm = re.search(r'<{0}>([^<]+)</{0}>'.format(key), content)
             if not pm:
                 pm = re.search(
-                    '<{0}><\!\[CDATA\[(.*?)\]\]></{0}>'.format(key), content)
+                    r'<{0}><\!\[CDATA\[(.*?)\]\]></{0}>'.format(key), content)
             if pm:
                 return pm.group(1)
         return '未知'
+
 
 

@@ -10,7 +10,7 @@
 工具库
 """
 
-def _transcoding(self, data):
+def _transcoding(data):
     """ 解码 """
     if not data:
         return data
@@ -20,6 +20,7 @@ def _transcoding(self, data):
     elif type(data) == str:
         result = data.decode('utf-8')
     return result
+
 
 def _decode_list(data):
     rv = []
@@ -65,5 +66,12 @@ class UnicodeStreamFilter(object):
 
     def flush(self):
         self.target.flush()
+
+
+def _print_qr(mat):
+    for i in mat:
+        BLACK = '\033[40m  \033[0m'
+        WHITE = '\033[47m  \033[0m'
+        print ''.join([BLACK if j else WHITE for j in i])
 
 

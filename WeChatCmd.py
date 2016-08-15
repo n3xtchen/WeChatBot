@@ -23,6 +23,7 @@ from collections import defaultdict
 from urlparse import urlparse
 from lxml import html
 
+from libs.util import _print_qr
 from extensions import ChatBot
 from WeChatBase import WebWeChat
 
@@ -37,6 +38,8 @@ def catchKeyboardInterrupt(fn):
 
 
 class WechatCmd(WebWeChat, ChatBot):
+
+    time_out = 20  # 同步最短时间间隔（单位：秒）
 
     def _safe_open(self, path):
         """ 打开文件，如图片 """
@@ -63,25 +66,12 @@ class WechatCmd(WebWeChat, ChatBot):
         sys.stdout.write(str)
         sys.stdout.flush()
 
-    # 打印2维码
-    # for Windows
-    def _showQRCodeImg(self):
-        url = 'https://login.weixin.qq.com/qrcode/' + self.uuid
-        params = {
-            't': 'webwx',
-            '_': int(time.time())
-        }
-
-        data = self._post(url, params, False)
-        QRCODE_PATH = self._saveFile('qrcode.jpg', data, '_showQRCodeImg')
-        os.startfile(QRCODE_PATH)
-
-    # 打印函数
     def genQRCode(self):
+        """ 生成二维码 """
         if sys.platform.startswith('win'):
-            self._showQRCodeImg()
+            os.startfile(self.get_qrcode('jpg'))
         else:
-            self._str2qr('https://login.weixin.qq.com/l/' + self.uuid)
+            _print_qr(self.get_qrcode('str'))
 
     def _showMsg(self, message):
 
@@ -324,7 +314,7 @@ class WechatCmd(WebWeChat, ChatBot):
                 name = member['NickName']
         if name == '未知群':
             # 现有群里面查不到
-            GroupList = self.getNameById(id)
+            GroupList = self.get_name_by_id(id)
             for group in GroupList:
                 self.GroupList.append(group)
                 if group['UserName'] == id:
@@ -383,23 +373,28 @@ class WechatCmd(WebWeChat, ChatBot):
                 logging.debug('[*] 你在其他地方登录了 WEB 版微信，债见')
                 break
             elif retcode == '0':
+                # 正常
                 if selector == '2':
+                    # 新信息
                     r = self.webwxsync()
                     if r is not None:
                         self.handleMsg(r)
                 elif selector == '6':
+                    # 红包
                     # TODO
                     redEnvelope += 1
                     print '[*] 收到疑似红包消息 %d 次' % redEnvelope
                     logging.debug('[*] 收到疑似红包消息 %d 次' % redEnvelope)
                 elif selector == '7':
+                    # 进入/离开聊天界面
                     playWeChat += 1
                     print '[*] 你在手机上玩微信被我发现了 %d 次' % playWeChat
                     logging.debug('[*] 你在手机上玩微信被我发现了 %d 次' % playWeChat)
                     r = self.webwxsync()
                 elif selector == '0':
+                    # 正常
                     time.sleep(1)
-            if (time.time() - self.lastCheckTs) <= 20:
+            if (time.time() - self.lastCheckTs) <= self.time_out:
                 time.sleep(time.time() - self.lastCheckTs)
 
     @catchKeyboardInterrupt
@@ -408,16 +403,16 @@ class WechatCmd(WebWeChat, ChatBot):
         print
         logging.debug('[*] 微信网页版 ... 开动')
         while True:
-            self._run('[*] 正在获取 uuid ... ', self.getUUID)
+            self._run('[*] 正在获取 uuid ... ', self.get_uuid)
             self._echo('[*] 正在获取二维码 ... 成功')
             print
             logging.debug('[*] 微信网页版 ... 开动')
             self.genQRCode()
             print '[*] 请使用微信扫描二维码以登录 ... '
-            if not self.waitForLogin():
+            if not self.wait_for_login():
                 continue
                 print '[*] 请在手机上点击确认以登录 ... '
-            if not self.waitForLogin(0):
+            if not self.wait_for_login(0):
                 continue
             break
 
