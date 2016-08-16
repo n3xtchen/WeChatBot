@@ -342,7 +342,7 @@ class WechatCmd(WebWeChat, ChatBot):
         if response is not None:
             media_id = response['MediaId']
         user_id = self.getUSerID(name)
-        response = self.webwxsendmsgimg(user_id, media_id)
+        response = self.webwxsendmsgimg(media_id, user_id)
 
     def sendEmotion(self, name, file_name):
         response = self.webwxuploadmedia(file_name)
@@ -350,7 +350,7 @@ class WechatCmd(WebWeChat, ChatBot):
         if response is not None:
             media_id = response['MediaId']
         user_id = self.getUSerID(name)
-        response = self.webwxsendmsgemotion(user_id, media_id)
+        response = self.webwxsendmsgemotion(media_id, user_id)
 
     def listenMsgMode(self):
         print '[*] 进入消息监听模式 ... 成功'

@@ -41,6 +41,13 @@ SYNC_HOST = [
     # 'webpush.wechatapp.com'
 ]
 
+SEND_MSG_TYPES = {
+    'msg': ('', {"Type": 1, "Content": _transcoding(content)}),
+    'msgimg': ('fun=async&f=json&', {"Type": 3, "MediaId": content}),
+    'msgemotionicon': ('fun=sys&f=json&', {
+        "Type": 47, "EmojiFlag": 2, "MediaId": content
+    })
+}
 
 class WebWeChat(RequestWithCookie):
     """
@@ -122,10 +129,14 @@ class WebWeChat(RequestWithCookie):
         self.init_cookie()  # 初始化 cookie
 
     def __getattr__(self, name):
-        if not name.startswith('webwxget'):
+        if name.startswith('webwxget'):
+            media_type = name[len("webwxget"):]
+            return lambda media_id: webwxget(media_type, media_id)
+        elif name.startswith('webwxsend'):
+            media_type = name[len("webwxsend"):]
+            return lambda media_id, user_id=None: webwxget(media_type, media_id, user_id)
+        else:
             raise AttributeError(name)
-        media_type = name[len("find_by_"):]
-        return lambda media_id:_get_meida(media_type, media_id)
 
     def load_config(self, config):
         """ 载入定制化配置 """
@@ -327,6 +338,7 @@ class WebWeChat(RequestWithCookie):
         # blabla ...
         return dic['ContactList']
 
+    # 同步，保持socket
     def testsynccheck(self):
         """ 选择可用的同步服务器 """
         for host in SYNC_HOST:
@@ -377,31 +389,9 @@ class WebWeChat(RequestWithCookie):
             ])
         return dic
 
-    def webwxsendmsg(self, word, to='filehelper'):
-        """ 发送信息 """
-        url = self.base_uri + \
-            '/webwxsendmsg?pass_ticket=%s' % (self.pass_ticket)
-        clientMsgId = str(int(time.time() * 1000)) + \
-            str(random.random())[:5].replace('.', '')
-        params = {
-            'BaseRequest': self.BaseRequest,
-            'Msg': {
-                "Type": 1,
-                "Content": _transcoding(word),
-                "FromUserName": self.User['UserName'],
-                "ToUserName": to,
-                "LocalID": clientMsgId,
-                "ClientMsgId": clientMsgId
-            }
-        }
-        headers = {'content-type': 'application/json; charset=UTF-8'}
-        data = json.dumps(params, ensure_ascii=False).encode('utf8')
-        r = requests.post(url, data=data, headers=headers)
-        dic = r.json()
-        return dic['BaseResponse']['Ret'] == 0
-
+    # 发送信息
     def webwxuploadmedia(self, image_name):
-        """ 上传接口 """
+        """ 上传媒体接口 """
         url = ('https://file2.wx.qq.com/cgi-bin/mmwebwx-bin/webwxuploadmedia?'
                'f=json')
         # 计数器
@@ -479,54 +469,37 @@ class WebWeChat(RequestWithCookie):
             return response_json
         return None
 
-    def webwxsendmsgimg(self, user_id, media_id):
-        """ 发送图片 """
-        url = ('https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxsendmsgimg?fun=async'
-               '&f=json&pass_ticket=%s') % self.pass_ticket
-        clientMsgId = str(int(time.time() * 1000)) + \
-            str(random.random())[:5].replace('.', '')
-        data_json = {
-            "BaseRequest": self.BaseRequest,
-            "Msg": {
-                "Type": 3,
-                "MediaId": media_id,
-                "FromUserName": self.User['UserName'],
-                "ToUserName": user_id,
-                "LocalID": clientMsgId,
-                "ClientMsgId": clientMsgId
-            }
-        }
-        headers = {'content-type': 'application/json; charset=UTF-8'}
-        data = json.dumps(data_json, ensure_ascii=False).encode('utf8')
-        r = requests.post(url, data=data, headers=headers)
-        dic = r.json()
-        return dic['BaseResponse']['Ret'] == 0
+    def webwxsend(self, msg_type_name, content, user_id='filehelper'):
+        """ 发送 """
+        if msg_type_name in SEND_MSG_TYPES:
+            msg_type = msg_types[msg_type_name]
+            url = self.base_uri + '/webwxsend{}?{}pass_ticket={}'.format(
+                msg_type, msg_type[0], self.pass_ticket)
 
-    def webwxsendmsgemotion(self, user_id, media_id):
-        """ 发送表情 """
-        url = ('https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxsendemoticon?fun=sys'
-               '&f=json&pass_ticket=%s') % self.pass_ticket
-        clientMsgId = str(int(time.time() * 1000)) + \
-            str(random.random())[:5].replace('.', '')
-        data_json = {
-            "BaseRequest": self.BaseRequest,
-            "Msg": {
-                "Type": 47,
-                "EmojiFlag": 2,
-                "MediaId": media_id,
-                "FromUserName": self.User['UserName'],
-                "ToUserName": user_id,
-                "LocalID": clientMsgId,
-                "ClientMsgId": clientMsgId
+            client_msg_id = str(int(time.time() * 1000)) + \
+                str(random.random())[:5].replace('.', '')
+            data_json = {
+                "BaseRequest": self.BaseRequest,
+                "Msg": {
+                    "FromUserName": self.User['UserName'],
+                    "ToUserName": user_id,
+                    "LocalID": client_msg_id,
+                    "ClientMsgId": client_msg_id
+                }
             }
-        }
-        headers = {'content-type': 'application/json; charset=UTF-8'}
-        data = json.dumps(data_json, ensure_ascii=False).encode('utf8')
-        r = requests.post(url, data=data, headers=headers)
-        dic = r.json()
-        logging.debug(json.dumps(dic, indent=4))
-        return dic['BaseResponse']['Ret'] == 0
 
+            data_json['Msg'].update(msg_type[1])
+
+            headers = {'content-type': 'application/json; charset=UTF-8'}
+            data = json.dumps(data_json, ensure_ascii=False).encode('utf8')
+            r = requests.post(url, data=data, headers=headers)
+            dic = r.json()
+            return dic['BaseResponse']['Ret'] == 0
+        else:
+            logging.debug('无该类型信息: %s' % msg_type)
+            return False
+
+    # 服务器获取媒体
     def _save_file(self, filename, data, sub_dir):
         """ 保存文件 """
         dirName = os.path.join(self.saveFolder, sub_dir)
@@ -539,7 +512,7 @@ class WebWeChat(RequestWithCookie):
             f.close()
         return fn
 
-    def _get_meida(self, media_type, id):
+    def webwxget(self, media_type, id):
         """ 获取图片，声音或影片 """
 
         if media_type in self.media_type:
