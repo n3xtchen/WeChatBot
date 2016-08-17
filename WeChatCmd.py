@@ -111,8 +111,7 @@ class WechatCmd(WebWeChat, ChatBot):
             if msg['raw_msg']['FromUserName'][:2] == '@@':
                 # 接收到来自群的消息
                 if re.search(":<br/>", content, re.IGNORECASE):
-                    tmp = content.split(':<br/>')
-                    [people, content] = tmp[0], ':<br/>'.join(tmp[1:])
+                    [people, content] = content.split(':<br/>', 1)
                     groupName = srcName
                     srcName = self.getUserRemarkName(people)
                     dstName = 'GROUP'
@@ -453,30 +452,30 @@ class WechatCmd(WebWeChat, ChatBot):
                 logging.debug('[*] 退出微信')
                 exit()
             elif text[:2] == '->':
-                [name, word] = text[2:].split(':')
+                [name, word] = text[2:].split(':', 1)
                 if name == 'all':
                     self.sendMsgToAll(word)
                 else:
                     self.sendMsg(name, word)
             elif text[:3] == 'm->':
-                [name, file] = text[3:].split(':')
+                [name, file] = text[3:].split(':', 1)
                 self.sendMsg(name, file, True)
             elif text[:3] == 'f->':
                 print '发送文件'
                 logging.debug('发送文件')
             elif text[:3] == 'i->':
                 print '发送图片'
-                [name, file_name] = text[3:].split(':')
+                [name, file_name] = text[3:].split(':', 1)
                 self.sendImg(name, file_name)
                 logging.debug('发送图片')
             elif text[:3] == 'e->':
                 print '发送表情'
-                [name, file_name] = text[3:].split(':')
+                [name, file_name] = text[3:].split(':', 1)
                 self.sendEmotion(name, file_name)
                 logging.debug('发送表情')
             elif text[:3] == 'g->':
                 print '发送群组'
-                [gid, word] = text[3:].split(':')
+                [gid, word] = text[3:].split(':', 1)
                 self.webwxsendmsg(word, gid)
                 logging.debug('发送群组')
 
