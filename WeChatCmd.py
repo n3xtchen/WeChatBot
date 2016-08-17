@@ -111,7 +111,8 @@ class WechatCmd(WebWeChat, ChatBot):
             if msg['raw_msg']['FromUserName'][:2] == '@@':
                 # 接收到来自群的消息
                 if re.search(":<br/>", content, re.IGNORECASE):
-                    [people, content] = content.split(':<br/>')
+                    tmp = content.split(':<br/>')
+                    [people, content] = tmp[0], ':<br/>'.join(tmp[1:])
                     groupName = srcName
                     srcName = self.getUserRemarkName(people)
                     dstName = 'GROUP'
