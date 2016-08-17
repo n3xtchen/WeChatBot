@@ -225,10 +225,10 @@ class WechatCmd(WebWeChat, ChatBot):
             elif msgType == 51:
                 raw_msg = {'raw_msg': msg, 'message': '[*] 成功获取联系人信息'}
                 self._showMsg(raw_msg)
-            elif msgType == 62:
+            elif msgType in [43, 62]:
                 video = self.webwxgetvideo(msgid)
                 raw_msg = {'raw_msg': msg,
-                           'message': '%s 发了一段小视频: %s' % (name, video)}
+                           'message': '%s 发了一段视频: %s' % (name, video)}
                 self._showMsg(raw_msg)
                 self._safe_open(video)
             elif msgType == 10002:
@@ -359,7 +359,7 @@ class WechatCmd(WebWeChat, ChatBot):
         playWeChat = 0
         redEnvelope = 0
         while True:
-            self.lastCheckTs = time.time()
+            lastCheckTs = time.time()
             [retcode, selector] = self.synccheck()
             if self.DEBUG:
                 print 'retcode: %s, selector: %s' % (retcode, selector)
@@ -394,8 +394,8 @@ class WechatCmd(WebWeChat, ChatBot):
                 elif selector == '0':
                     # 正常
                     time.sleep(1)
-            if (time.time() - self.lastCheckTs) <= self.time_out:
-                time.sleep(time.time() - self.lastCheckTs)
+            if (time.time() - lastCheckTs) <= self.time_out:
+                time.sleep(time.time() - lastCheckTs)
 
     @catchKeyboardInterrupt
     def start(self):
@@ -473,6 +473,11 @@ class WechatCmd(WebWeChat, ChatBot):
                 [name, file_name] = text[3:].split(':')
                 self.sendEmotion(name, file_name)
                 logging.debug('发送表情')
+            elif text[:3] == 'g->':
+                print '发送群组'
+                [gid, word] = text[3:].split(':')
+                self.webwxsendmsg(word, gid)
+                logging.debug('发送群组')
 
 
 if sys.stdout.encoding == 'cp936':

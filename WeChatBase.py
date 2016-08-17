@@ -42,9 +42,9 @@ SYNC_HOST = [
 ]
 
 SEND_MSG_TYPES = {
-    'msg': ('', {"Type": 1, "Content": _transcoding(content)}),
-    'msgimg': ('fun=async&f=json&', {"Type": 3, "MediaId": content}),
-    'msgemotionicon': ('fun=sys&f=json&', {
+    'msg': lambda content: ('', {"Type": 1, "Content": _transcoding(content)}),
+    'msgimg': lambda content: ('fun=async&f=json&', {"Type": 3, "MediaId": content}),
+    'msgemotionicon': lambda content: ('fun=sys&f=json&', {
         "Type": 47, "EmojiFlag": 2, "MediaId": content
     })
 }
@@ -111,7 +111,6 @@ class WebWeChat(RequestWithCookie):
 
         self.appid = 'wx782c26e4c19acffb'
         self.lang = 'zh_CN'
-        self.lastCheckTs = time.time()
         self.memberCount = 0
         self.SpecialUsers = [
             'newsapp', 'fmessage', 'filehelper', 'weibo', 'qqmail', 'fmessage',
@@ -131,10 +130,24 @@ class WebWeChat(RequestWithCookie):
     def __getattr__(self, name):
         if name.startswith('webwxget'):
             media_type = name[len("webwxget"):]
+<<<<<<< HEAD
+<<<<<<< HEAD
+            return lambda media_id: self.webwxget(media_type, media_id)
+        elif name.startswith('webwxsend'):
+            media_type = name[len("webwxsend"):]
+            return lambda media_id, user_id=None: self.webwxsend(media_type, media_id, user_id)
+=======
             return lambda media_id: webwxget(media_type, media_id)
         elif name.startswith('webwxsend'):
             media_type = name[len("webwxsend"):]
             return lambda media_id, user_id=None: webwxget(media_type, media_id, user_id)
+>>>>>>> 467f5a8... 代码重构:抽象发送接口, 修复Bug
+=======
+            return lambda media_id: self.webwxget(media_type, media_id)
+        elif name.startswith('webwxsend'):
+            media_type = name[len("webwxsend"):]
+            return lambda media_id, user_id=None: self.webwxsend(media_type, media_id, user_id)
+>>>>>>> 3739a13... 1) 视频信息类型添加43;2)添加群发送功能;3)修复bug
         else:
             raise AttributeError(name)
 
@@ -175,14 +188,12 @@ class WebWeChat(RequestWithCookie):
             url = 'https://login.weixin.qq.com/qrcode/' + self.uuid
             params = {'t': 'webwx', '_': int(time.time())}
             data = self._post(url, params, False)
-            QRCODE_PATH = self._save_file('qrcode.jpg', data, 'qrcodes')
-            return QRCODE_PATH
+            return self._save_file('qrcode.jpg', data, 'qrcodes')
         elif media_type == "str":
             qr = qrcode.QRCode()
             qr.border = 1
             qr.add_data('https://login.weixin.qq.com/l/' + self.uuid)
-            mat = qr.get_matrix()
-            return mat
+            return qr.get_matrix()
 
     def wait_for_login(self, tip=1):
         """ 等待登录 """
@@ -472,9 +483,22 @@ class WebWeChat(RequestWithCookie):
     def webwxsend(self, msg_type_name, content, user_id='filehelper'):
         """ 发送 """
         if msg_type_name in SEND_MSG_TYPES:
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3739a13... 1) 视频信息类型添加43;2)添加群发送功能;3)修复bug
+            msg_type = SEND_MSG_TYPES[msg_type_name](content)
+            url = '{}/webwxsend{}?{}pass_ticket={}'.format(
+                    self.base_uri, msg_type_name, msg_type[0], self.pass_ticket
+                    )
+<<<<<<< HEAD
+=======
             msg_type = msg_types[msg_type_name]
             url = self.base_uri + '/webwxsend{}?{}pass_ticket={}'.format(
                 msg_type, msg_type[0], self.pass_ticket)
+>>>>>>> 467f5a8... 代码重构:抽象发送接口, 修复Bug
+=======
+>>>>>>> 3739a13... 1) 视频信息类型添加43;2)添加群发送功能;3)修复bug
 
             client_msg_id = str(int(time.time() * 1000)) + \
                 str(random.random())[:5].replace('.', '')
@@ -488,7 +512,15 @@ class WebWeChat(RequestWithCookie):
                 }
             }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
             data_json['Msg'].update(msg_type[1])
+=======
+            data_json['Msg'].update(msg_type[1](content))
+>>>>>>> 467f5a8... 代码重构:抽象发送接口, 修复Bug
+=======
+            data_json['Msg'].update(msg_type[1])
+>>>>>>> 3739a13... 1) 视频信息类型添加43;2)添加群发送功能;3)修复bug
 
             headers = {'content-type': 'application/json; charset=UTF-8'}
             data = json.dumps(data_json, ensure_ascii=False).encode('utf8')
@@ -519,7 +551,7 @@ class WebWeChat(RequestWithCookie):
             url = self.base_uri + \
                 '/webwxget{}?username={}&skey={}'.format(media_type, id, self.skey)
             if media_type in ['video', 'voice']:
-                data = self._get(url, headers)
+                data = self._get(url, (('Range', 'bytes=0-'),))
             else:
                 data = self._get(url)
             fn = 'img_' + id + '.' + self.media_type[media_type]

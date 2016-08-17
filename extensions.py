@@ -37,8 +37,8 @@ class RequestWithCookie(object):
         request = urllib2.Request(url=url)
         request.add_header('Referer', self.referer)
         if headers:
-            for header in headers:
-                request.add_header(*headers)
+            for name, content in headers:
+                request.add_header(name, content)
         response = urllib2.urlopen(request)
         data = response.read()
         logging.debug(url)
