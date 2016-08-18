@@ -42,6 +42,7 @@ class RequestWithCookie(object):
         response = urllib2.urlopen(request)
         data = response.read()
         logging.debug(url)
+        logging.debug(' '.join(data.split()))
         return data
 
     def _post(self, url, params, jsonfmt=True):
@@ -54,6 +55,8 @@ class RequestWithCookie(object):
             request = urllib2.Request(url=url, data=urlencode(params))
         response = urllib2.urlopen(request)
         data = response.read()
+        logging.debug(url)
+        logging.debug(' '.join(data.split()))
         if jsonfmt:
             return json.loads(data, object_hook=_decode_dict)
         return data

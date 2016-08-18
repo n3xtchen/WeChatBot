@@ -376,7 +376,6 @@ class WebWeChat(RequestWithCookie):
             'rr': ~int(time.time())
         }
         dic = self._post(url, params)
-        logging.debug(json.dumps(dic))
 
         if dic['BaseResponse']['Ret'] == 0:
             self.SyncKey = dic['SyncKey']

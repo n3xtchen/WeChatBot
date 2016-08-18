@@ -359,10 +359,8 @@ class WechatCmd(WebWeChat, ChatBot):
         playWeChat = 0
         redEnvelope = 0
         while True:
-            lastCheckTs = time.time()
+            last_check_ts = time.time()
             [retcode, selector] = self.synccheck()
-            if self.DEBUG:
-                print 'retcode: %s, selector: %s' % (retcode, selector)
             logging.debug('retcode: %s, selector: %s' % (retcode, selector))
             if retcode == '1100':
                 print '[*] 你在手机上登出了微信，债见'
@@ -380,6 +378,9 @@ class WechatCmd(WebWeChat, ChatBot):
                     if r is not None:
                         self.handleMsg(r)
                 elif selector == '6':
+                    r = self.webwxsync()
+                    if r is not None:
+                        logging.debug(r)
                     # 红包
                     # TODO
                     redEnvelope += 1
@@ -394,8 +395,10 @@ class WechatCmd(WebWeChat, ChatBot):
                 elif selector == '0':
                     # 正常
                     time.sleep(1)
-            if (time.time() - lastCheckTs) <= self.time_out:
-                time.sleep(time.time() - lastCheckTs)
+            if (time.time()-last_check_ts) <= self.time_out:
+                time.sleep(1)
+            logging.debug("Last Check At %s, now is %s" % (
+                last_check_ts, time.time()))
 
     @catchKeyboardInterrupt
     def start(self):
