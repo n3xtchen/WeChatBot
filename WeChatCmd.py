@@ -405,13 +405,14 @@ class WechatCmd(WebWeChat, ChatBot):
         self._echo('[*] 微信网页版 ... 开动')
         print
         logging.debug('[*] 微信网页版 ... 开动')
+
+        self._run('[*] 正在获取 uuid ... ', self.get_uuid)
+        self._echo('[*] 正在获取二维码 ... 成功')
+        print
+        logging.debug('[*] 微信网页版 ... 开动')
+        self.genQRCode()
+        print '[*] 请使用微信扫描二维码以登录 ... '
         while True:
-            self._run('[*] 正在获取 uuid ... ', self.get_uuid)
-            self._echo('[*] 正在获取二维码 ... 成功')
-            print
-            logging.debug('[*] 微信网页版 ... 开动')
-            self.genQRCode()
-            print '[*] 请使用微信扫描二维码以登录 ... '
             if not self.wait_for_login():
                 continue
                 print '[*] 请在手机上点击确认以登录 ... '

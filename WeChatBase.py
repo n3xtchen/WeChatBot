@@ -184,7 +184,7 @@ class WebWeChat(RequestWithCookie):
     def wait_for_login(self, tip=1):
         """ 等待登录 """
         time.sleep(tip)
-        url = ('https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?tip=%s'
+        url = ('https://login.weixin.qq.com/cgi-bin/mmwebwx-bin/login?loginicon=true&tip=%s'
                '&uuid=%s&_=%s') % (tip, self.uuid, int(time.time()))
         data = self._get(url)
         pm = re.search(r'window.code=(\d+);', data)
