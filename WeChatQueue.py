@@ -14,15 +14,11 @@ WechatQueue
 
     # 需要实现的方法
     def handleMsg(self, retcode, selector, msg):
-        """
         处理信息接口
-        """
         pass
 
     def sendMsg(self, content):
-        """
         发送信息接口
-        """
         pass
 """
 
@@ -38,21 +34,22 @@ from collections import defaultdict
 from libs.util import _print_qr
 from WeChatBase import WebWeChat
 
-class WechatQueue(object):
+class WeChatQueue(object):
 
     time_out = 20  # 同步最短时间间隔（单位：秒）
 
-    def __init__(name, queue):
+    def __init__(self, name, queue):
         """
         name: 队列名称
         queue: 线程安全的队列，用于通讯调度
         """
-        self.bot = name
+        self.name = name
+        self.bot = WebWeChat()
         self.queue = queue
 
     def _run(self, str, func, *args):
         """ 运行方法，并输出日志 """
-        logging.debg(str)
+        logging.debug(str)
         if func(*args):
             logging.debug('%s... 成功' % (str))
         else:
@@ -75,13 +72,12 @@ class WechatQueue(object):
     def listenMsgMode(self):
         """ 监听信息 """
         logging.debug('[*] 进入消息监听模式 ... 成功')
-        self._run('[*] 进行同步线路测试 ... ', self.testsynccheck)
         while True:
             last_check_ts = time.time()
-            [retcode, selector] = self.synccheck()
+            [retcode, selector] = self.bot.synccheck()
             logging.debug('retcode: %s, selector: %s' % (retcode, selector))
             if retcode == '0' and selector in ['2', '6', '7']:
-                r = self.webwxsync()
+                r = self.bot.webwxsync()
             self.handleMsg(retcode, selector, r)
             if retcode == '0' and selector == '0':
                 time.sleep(1)
@@ -136,6 +132,7 @@ class WechatQueue(object):
         logging.debug('[*] 微信网页版 ... 开动')
         logging.debug(self)
 
+        self._run('[*] 进行同步线路测试 ... ', self.bot.testsynccheck)
         listenProcess = multiprocessing.Process(target=self.listenMsgMode)
         listenProcess.start()
 
@@ -145,6 +142,7 @@ class WechatQueue(object):
                 listenProcess.terminate()
                 logging.debug('[*] 退出微信')
                 exit()
-            self.sendMsg(text)
+            else:
+                self.sendMsg(text)
 
 

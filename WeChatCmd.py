@@ -353,9 +353,7 @@ class WechatCmd(WebWeChat, ChatBot):
         response = self.webwxsendmsgemotion(media_id, user_id)
 
     def listenMsgMode(self):
-        print '[*] 进入消息监听模式 ... 成功'
         logging.debug('[*] 进入消息监听模式 ... 成功')
-        self._run('[*] 进行同步线路测试 ... ', self.testsynccheck)
         playWeChat = 0
         redEnvelope = 0
         while True:
@@ -445,6 +443,8 @@ class WechatCmd(WebWeChat, ChatBot):
         else:
             print '[*] 自动回复模式 ... 关闭'
             logging.debug('[*] 自动回复模式 ... 关闭')
+
+        self._run('[*] 进行同步线路测试 ... ', self.testsynccheck)
 
         listenProcess = multiprocessing.Process(target=self.listenMsgMode)
         listenProcess.start()
