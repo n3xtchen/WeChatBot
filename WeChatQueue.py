@@ -79,6 +79,10 @@ class WeChatQueue(object):
             if retcode == '0' and selector in ['2', '6', '7']:
                 r = self.bot.webwxsync()
             self.handleMsg(retcode, selector, r)
+
+            if retcode in ('1100', '1101'):
+                self.queue.send('quit')
+                break
             if retcode == '0' and selector == '0':
                 time.sleep(1)
 
@@ -86,6 +90,12 @@ class WeChatQueue(object):
                 time.sleep(1)
             logging.debug("Last Check At %s, now is %s" % (
                 last_check_ts, time.time()))
+
+    def beat(self):
+        """ 心跳 """
+        while True:
+            self.queue.put("beat")
+            time.sleep(60)
 
     def start(self):
         """
@@ -135,11 +145,14 @@ class WeChatQueue(object):
         self._run('[*] 进行同步线路测试 ... ', self.bot.testsynccheck)
         listenProcess = multiprocessing.Process(target=self.listenMsgMode)
         listenProcess.start()
+        beatProcess =  multiprocessing.Process(target=self.beat)
+        beatProcess.start()
 
         while True:
             text = self.queue.get()
             if text == 'quit':
                 listenProcess.terminate()
+                beatProcess.terminate()
                 logging.debug('[*] 退出微信')
                 exit()
             else:
