@@ -449,6 +449,13 @@ class WechatCmd(WebWeChat, ChatBot):
         listenProcess = multiprocessing.Process(target=self.listenMsgMode)
         listenProcess.start()
 
+        # 发送信息，在初始化之后，就成常量了
+        #   self.BaseRequest
+        #   self.pass_ticket
+        # 要注意通讯录的更新，同步线程与当前线程是隔离的，定期更新当前的通讯录
+        #   FromUserName
+        #   ToUserName
+        # 如果多线程编程，需要注意!!!!!
         while True:
             text = raw_input('')
             if text == 'quit':

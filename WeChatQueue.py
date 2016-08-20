@@ -79,6 +79,10 @@ class WeChatQueue(object):
             if retcode == '0' and selector in ['2', '6', '7']:
                 r = self.bot.webwxsync()
             self.handleMsg(retcode, selector, r)
+
+            if retcode in ('1100', '1101'):
+                self.queue.send('quit')
+                break
             if retcode == '0' and selector == '0':
                 time.sleep(1)
 
@@ -105,7 +109,6 @@ class WeChatQueue(object):
             os.startfile(bot.get_qrcode('jpg'))
         else:
             _print_qr(bot.get_qrcode('str'))
-
 
         logging.info('[*] 请使用微信扫描二维码以登录 ... ')
         while True:
@@ -136,6 +139,13 @@ class WeChatQueue(object):
         listenProcess = multiprocessing.Process(target=self.listenMsgMode)
         listenProcess.start()
 
+        # 发送信息，在初始化之后，就成常量了
+        #   self.BaseRequest
+        #   self.pass_ticket
+        # 要注意通讯录的更新，同步线程与当前线程是隔离的，定期更新当前的通讯录
+        #   FromUserName
+        #   ToUserName
+        # 如果多线程编程，需要注意!!!!!
         while True:
             text = self.queue.get()
             if text == 'quit':
