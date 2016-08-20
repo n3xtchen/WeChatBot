@@ -91,6 +91,12 @@ class WeChatQueue(object):
             logging.debug("Last Check At %s, now is %s" % (
                 last_check_ts, time.time()))
 
+    def beat(self):
+        """ 心跳 """
+        while True:
+            self.queue.put("beat")
+            time.sleep(60)
+
     def start(self):
         """
         启动
@@ -138,6 +144,8 @@ class WeChatQueue(object):
         self._run('[*] 进行同步线路测试 ... ', self.bot.testsynccheck)
         listenProcess = multiprocessing.Process(target=self.listenMsgMode)
         listenProcess.start()
+        beatProcess =  multiprocessing.Process(target=self.beat)
+        beatProcess.start()
 
         # 发送信息，在初始化之后，就成常量了
         #   self.BaseRequest
@@ -150,6 +158,7 @@ class WeChatQueue(object):
             text = self.queue.get()
             if text == 'quit':
                 listenProcess.terminate()
+                beatProcess.terminate()
                 logging.debug('[*] 退出微信')
                 exit()
             else:
