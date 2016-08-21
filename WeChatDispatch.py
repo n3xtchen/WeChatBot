@@ -28,15 +28,24 @@ import os
 import platform
 import random
 import multiprocessing
+import threading
 import logging
 from collections import defaultdict
 
 from libs.util import _print_qr
 from WeChatBase import WebWeChat
 
-class WeChatQueue(object):
+class WeChatDispatch(object):
+    """ 队列分发 """
+
+    status = 0  # 运行状态
 
     time_out = 20  # 同步最短时间间隔（单位：秒）
+    beat_time_out = (60, 600)
+
+    stop_beat_event = None
+    listen_process = None
+    beat_thread = None
 
     def __init__(self, name, queue):
         """
@@ -92,10 +101,12 @@ class WeChatQueue(object):
                 last_check_ts, time.time()))
 
     def beat(self):
-        """ 心跳 """
-        while True:
-            self.queue.put("beat")
-            time.sleep(60)
+        """ 心跳线程 """
+        self.queue.put(self.name+":start")
+        self.stop_beat_event = threading.Event()
+        while not self.stop_beat_event.wait(1):
+            self.queue.put(self.name+":beat")
+            time.sleep(random.randint(*self.beat_time_out))
 
     def start(self):
         """
@@ -142,10 +153,10 @@ class WeChatQueue(object):
         logging.debug(self)
 
         self._run('[*] 进行同步线路测试 ... ', self.bot.testsynccheck)
-        listenProcess = multiprocessing.Process(target=self.listenMsgMode)
-        listenProcess.start()
-        beatProcess =  multiprocessing.Process(target=self.beat)
-        beatProcess.start()
+
+        # 启动监听程序
+        self.listen_process = multiprocessing.Process(target=self.listenMsgMode)
+        self.listen_process.start()
 
         # 发送信息，在初始化之后，就成常量了
         #   self.BaseRequest
@@ -153,15 +164,25 @@ class WeChatQueue(object):
         # 要注意通讯录的更新，同步线程与当前线程是隔离的，定期更新当前的通讯录
         #   FromUserName
         #   ToUserName
-        # 如果多线程编程，需要注意!!!!!
-        while True:
-            text = self.queue.get()
-            if text == 'quit':
-                listenProcess.terminate()
-                beatProcess.terminate()
-                logging.debug('[*] 退出微信')
-                exit()
-            else:
-                self.sendMsg(text)
+        # 如果多进程编程，需要注意!!!!!
+        self.beat_thread = threading.Thread(
+            target=self.beat
+        )
+        self.beat_thread.start()
+
+    def quit(self):
+        """ 退出，删除线程进程 """
+        if self.listen_process:
+            self.listen_process.terminate()
+        # 停止心跳包
+        self.stop_beat_event.set()
+        self.beat_thread.join()
+
+    @classmethod
+    def new_client(cls, name, queue):
+        """ 启动新实例 """
+        app = cls(name, queue)
+        app.start()
+        return app
 
 
