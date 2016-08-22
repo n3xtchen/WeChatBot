@@ -23,17 +23,13 @@ WechatQueue
 """
 
 import time
-import sys
-import os
-import platform
 import random
 import multiprocessing
 import threading
 import logging
-from collections import defaultdict
 
-from libs.util import _print_qr
-from WeChatBase import WebWeChat
+from WeChatBot.libs.util import _print_qr
+from WeChatBot.WeChatBase import WebWeChat
 
 class WeChatDispatch(object):
     """ 队列分发 """
@@ -56,38 +52,37 @@ class WeChatDispatch(object):
         self.bot = WebWeChat()
         self.queue = queue
 
-    def _run(self, str, func, *args):
+    def _run(self, info, func, *args):
         """ 运行方法，并输出日志 """
-        logging.debug(str)
         if func(*args):
-            logging.debug('%s... 成功' % (str))
+            logging.info('%s... 成功', info)
         else:
-            logging.debug('%s... 失败' % (str))
-            logging.debug('[*] 退出程序')
+            logging.info('%s... 失败', info)
+            logging.info('[*] 退出程序')
             exit()
 
-    def handleMsg(self, retcode, selector, msg):
+    def handle_msg(self, retcode, selector, msg):
         """
         处理信息接口
         """
         pass
 
-    def sendMsg(self, content):
+    def send_msg(self, content):
         """
         发送信息接口
         """
         pass
 
-    def listenMsgMode(self):
+    def listen_msg_mode(self):
         """ 监听信息 """
         logging.debug('[*] 进入消息监听模式 ... 成功')
         while True:
             last_check_ts = time.time()
             [retcode, selector] = self.bot.synccheck()
-            logging.debug('retcode: %s, selector: %s' % (retcode, selector))
+            logging.debug('retcode: %s, selector: %s', retcode, selector)
             if retcode == '0' and selector in ['2', '6', '7']:
-                r = self.bot.webwxsync()
-            self.handleMsg(retcode, selector, r)
+                response = self.bot.webwxsync()
+            self.handle_msg(retcode, selector, response)
 
             if retcode in ('1100', '1101'):
                 self.queue.send('quit')
@@ -97,8 +92,8 @@ class WeChatDispatch(object):
 
             if (time.time()-last_check_ts) <= self.time_out:
                 time.sleep(1)
-            logging.debug("Last Check At %s, now is %s" % (
-                last_check_ts, time.time()))
+            logging.debug("Last Check At %s, now is %s",
+                          last_check_ts, time.time())
 
     def beat(self):
         """ 心跳线程 """
@@ -111,27 +106,17 @@ class WeChatDispatch(object):
     def start(self):
         """
         启动
-
-        queuen: 发送消息队列
         """
-
-        bot = self.bot
-
         logging.debug('[*] 微信网页版 ... 开动')
-
+        bot = self.bot
         self._run('[*] 正在获取 uuid ... ', bot.get_uuid)
         logging.debug('[*] 正在获取二维码 ... 成功')
-        """ 生成二维码 """
-        if sys.platform.startswith('win'):
-            os.startfile(bot.get_qrcode('jpg'))
-        else:
-            _print_qr(bot.get_qrcode('str'))
-
+        _print_qr(bot.get_qrcode('str'))
         logging.info('[*] 请使用微信扫描二维码以登录 ... ')
         while True:
             if not bot.wait_for_login():
-                continue
                 logging.info('[*] 请在手机上点击确认以登录 ... ')
+                continue
             if not bot.wait_for_login(0):
                 continue
             break
@@ -141,12 +126,14 @@ class WeChatDispatch(object):
         self._run('[*] 开启状态通知 ... ', bot.webwxstatusnotify)
         self._run('[*] 获取联系人 ... ', bot.webwxgetcontact)
 
-        logging.info('[*] 应有 %s 个联系人，读取到联系人 %d 个' %
-                   (bot.MemberCount, len(bot.MemberList)))
-        logging.info(('[*] 共有 %d 个群 | %d 个直接联系人 | %d 个特殊账号 ｜ '
-                    '%d 公众号或服务号') % (
-                        len(bot.GroupList), len(bot.ContactList),
-                        len(bot.SpecialUsersList), len(bot.PublicUsersList)))
+        logging.info('[*] 应有 %s 个联系人，读取到联系人 %d 个',
+                     bot.MemberCount, len(bot.MemberList))
+        logging.info(
+            ('[*] 共有 %d 个群 | %d 个直接联系人 | %d 个特殊账号 ｜ %d 公众号或'
+             '服务号'),
+            len(bot.GroupList), len(bot.ContactList),
+            len(bot.SpecialUsersList), len(bot.PublicUsersList)
+        )
 
         self._run('[*] 获取群 ... ', bot.webwxbatchgetcontact)
         logging.debug('[*] 微信网页版 ... 开动')
@@ -155,7 +142,7 @@ class WeChatDispatch(object):
         self._run('[*] 进行同步线路测试 ... ', self.bot.testsynccheck)
 
         # 启动监听程序
-        self.listen_process = multiprocessing.Process(target=self.listenMsgMode)
+        self.listen_process = multiprocessing.Process(target=self.listen_msg_mode)
         self.listen_process.start()
 
         # 发送信息，在初始化之后，就成常量了

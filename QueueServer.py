@@ -15,7 +15,9 @@ import logging
 from argparse import ArgumentParser
 from multiprocessing import managers, Queue
 
-class QueueManager(managers.BaseManager): pass
+class QueueManager(managers.BaseManager):
+    """ 队列管理器 """
+    pass
 
 
 def start_server():
@@ -28,17 +30,17 @@ def start_server():
                         help=u'主机地址')
     parser.add_argument('--port', dest='port', type=int,
                         default=50000, help=u'端口')
-    parser.add_argument('--auth-key', dest='auth_key', 
+    parser.add_argument('--auth-key', dest='auth_key',
                         default="n3xtchen", help=u'认证码')
     args = parser.parse_args()
 
-    # 新建队列 
+    # 新建队列
     queue = Queue()
 
     # 启动服务
     try:
-        logging.warning(u"队列服务将启动...\n 地址:%s:%s" % (args.host, args.port))
-        QueueManager.register('get_queue', callable=lambda:queue)
+        logging.warning(u"队列服务将启动...\n 地址:%s:%s", args.host, args.port)
+        QueueManager.register('get_queue', callable=lambda: queue)
         manager = QueueManager(
             address=(args.host, args.port),
             authkey=args.auth_key
