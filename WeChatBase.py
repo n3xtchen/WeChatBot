@@ -85,19 +85,24 @@ class WebWeChat(RequestWithCookie):
         self.SyncKey = []
         self.User = []
         self.MemberList = []
-        self.ContactList = []  # 好友
-        self.GroupList = []  # 群
-        self.GroupMemeberList = []  # 群友
-        self.PublicUsersList = []  # 公众号／服务号
-        self.SpecialUsersList = []  # 特殊账号
-        self.autoReplyMode = False
+        self.memberCount = 0
+        self.SpecialUsers = [
+            'newsapp', 'fmessage', 'filehelper', 'weibo', 'qqmail', 'fmessage',
+            'tmessage', 'qmessage', 'qqsync', 'floatbottle', 'lbsapp',
+            'shakeapp', 'medianote', 'qqfriend', 'readerapp', 'blogapp',
+            'facebookapp', 'masssendapp', 'meishiapp', 'feedsapp',
+            'voip', 'blogappweixin', 'weixin', 'brandsessionholder',
+            'weixinreminder', 'wxid_novlwrv3lqwv11', 'gh_22b87fa7cb3c',
+            'officialaccounts', 'notification_messages', 'wxid_novlwrv3lqwv11',
+            'gh_22b87fa7cb3c', 'wxitil', 'userexperience_alarm',
+            'notification_messages'
+        ]
         self.syncHost = ''
         self.user_agent = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_3) '
                            'AppleWebKit/537.36 (KHTML, like Gecko) '
                            'Chrome/48.0.2564.109 Safari/537.36')
         self.referer = 'https://wx.qq.com/'
         self.interactive = False
-        self.autoOpen = False
 
         # 文件保存
         self.saveFolder = os.path.join(os.getcwd(), 'saved')
@@ -111,18 +116,6 @@ class WebWeChat(RequestWithCookie):
 
         self.appid = 'wx782c26e4c19acffb'
         self.lang = 'zh_CN'
-        self.memberCount = 0
-        self.SpecialUsers = [
-            'newsapp', 'fmessage', 'filehelper', 'weibo', 'qqmail', 'fmessage',
-            'tmessage', 'qmessage', 'qqsync', 'floatbottle', 'lbsapp',
-            'shakeapp', 'medianote', 'qqfriend', 'readerapp', 'blogapp',
-            'facebookapp', 'masssendapp', 'meishiapp', 'feedsapp',
-            'voip', 'blogappweixin', 'weixin', 'brandsessionholder',
-            'weixinreminder', 'wxid_novlwrv3lqwv11', 'gh_22b87fa7cb3c',
-            'officialaccounts', 'notification_messages', 'wxid_novlwrv3lqwv11',
-            'gh_22b87fa7cb3c', 'wxitil', 'userexperience_alarm',
-            'notification_messages'
-        ]
         self.media_count = -1
 
         self.init_cookie()  # 初始化 cookie
@@ -147,8 +140,6 @@ class WebWeChat(RequestWithCookie):
             self.user_agent = config['user_agent']
         if config['interactive']:
             self.interactive = config['interactive']
-        if config['autoOpen']:
-            self.autoOpen = config['autoOpen']
 
     def get_uuid(self):
         """ 获取用户ID """
@@ -266,33 +257,12 @@ class WebWeChat(RequestWithCookie):
 
     def webwxgetcontact(self):
         """ 获取通讯录 """
-        SpecialUsers = self.SpecialUsers
         url = self.base_uri + '/webwxgetcontact?pass_ticket=%s&skey=%s&r=%s' % (
             self.pass_ticket, self.skey, int(time.time()))
         dic = self._post(url, {})
 
         self.MemberCount = dic['MemberCount']
         self.MemberList = dic['MemberList']
-        ContactList = self.MemberList[:]
-        GroupList = self.GroupList[:]
-        PublicUsersList = self.PublicUsersList[:]
-        SpecialUsersList = self.SpecialUsersList[:]
-
-        for i in xrange(len(ContactList) - 1, -1, -1):
-            Contact = ContactList[i]
-            if Contact['VerifyFlag'] & 8 != 0:  # 公众号/服务号
-                ContactList.remove(Contact)
-                self.PublicUsersList.append(Contact)
-            elif Contact['UserName'] in SpecialUsers:  # 特殊账号
-                ContactList.remove(Contact)
-                self.SpecialUsersList.append(Contact)
-            elif Contact['UserName'].find('@@') != -1:  # 群聊
-                ContactList.remove(Contact)
-                self.GroupList.append(Contact)
-            elif Contact['UserName'] == self.User['UserName']:  # 自己
-                ContactList.remove(Contact)
-        self.ContactList = ContactList
-
         return True
 
     def webwxbatchgetcontact(self):

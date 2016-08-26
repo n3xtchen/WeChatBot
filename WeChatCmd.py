@@ -39,7 +39,46 @@ def catchKeyboardInterrupt(fn):
 
 class WechatCmd(WebWeChat, ChatBot):
 
+    ContactList = []  # 好友
+    GroupList = []  # 群
+    GroupMemeberList = []  # 群友
+    PublicUsersList = []  # 公众号／服务号
+    SpecialUsersList = []  # 特殊账号
+    autoReplyMode = False
     time_out = 20  # 同步最短时间间隔（单位：秒）
+
+    def webwxgetcontact(self):
+        """ 获取通讯录 """
+        SpecialUsers = self.SpecialUsers
+        url = self.base_uri + '/webwxgetcontact?pass_ticket=%s&skey=%s&r=%s' % (
+            self.pass_ticket, self.skey, int(time.time()))
+        dic = self._post(url, {})
+
+        self.MemberCount = dic['MemberCount']
+        self.MemberList = dic['MemberList']
+        ContactList = self.MemberList[:]
+        GroupList = self.GroupList[:]
+        PublicUsersList = self.PublicUsersList[:]
+        SpecialUsersList = self.SpecialUsersList[:]
+
+        for i in xrange(len(ContactList) - 1, -1, -1):
+            Contact = ContactList[i]
+            if Contact['VerifyFlag'] & 8 != 0:  # 公众号/服务号
+                ContactList.remove(Contact)
+                self.PublicUsersList.append(Contact)
+            elif Contact['UserName'] in SpecialUsers:  # 特殊账号
+                ContactList.remove(Contact)
+                self.SpecialUsersList.append(Contact)
+            elif Contact['UserName'].find('@@') != -1:  # 群聊
+                ContactList.remove(Contact)
+                self.GroupList.append(Contact)
+            elif Contact['UserName'] == self.User['UserName']:  # 自己
+                ContactList.remove(Contact)
+        self.ContactList = ContactList
+
+        return True
+
+
 
     def _safe_open(self, path):
         """ 打开文件，如图片 """

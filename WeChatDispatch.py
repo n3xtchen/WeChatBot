@@ -80,12 +80,23 @@ class WeChatDispatch(object):
             last_check_ts = time.time()
             [retcode, selector] = self.bot.synccheck()
             logging.debug('retcode: %s, selector: %s', retcode, selector)
-            if retcode == '0' and selector in ['2', '6', '7']:
+            if retcode == '0':
                 response = self.bot.webwxsync()
-            self.handle_msg(retcode, selector, response)
+                if selector == '2':
+                    if response is not None:
+                        handle_msg(response)
+                elif selector == '3':
+                    print '[*] 未知行为'
+                elif selector == '6':
+                    print '[*] 收到疑似红包消息'
+                elif selector == '7':
+                    print '[*] 你在手机上玩微信被我发现了'
+
+
+                self.handle_msg(retcode, selector, response)
 
             if retcode in ('1100', '1101'):
-                self.queue.send('quit')
+                self.queue.send(self.name+':quit')
                 break
             if retcode == '0' and selector == '0':
                 time.sleep(1)
