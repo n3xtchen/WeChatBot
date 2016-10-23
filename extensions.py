@@ -16,6 +16,7 @@ import urllib2
 import cookielib
 import requests
 import json
+import httplib
 
 from urllib import urlencode
 
@@ -25,25 +26,47 @@ class RequestWithCookie(object):
     """ 带cookie的请求 """
 
     def init_cookie(self):
-        """ 初始化cookie """
-
         self.cookie = cookielib.CookieJar()
         opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(self.cookie))
         opener.addheaders = [('User-agent', self.user_agent)]
         urllib2.install_opener(opener)
 
-    def _get(self, url, headers=None):
-        """ http get """
+    # def _get(self, url, headers=None):
+    #     """ http get """
+    #     request = urllib2.Request(url=url)
+    #     request.add_header('Referer', self.referer)
+    #     if headers:
+    #         for name, content in headers:
+    #             request.add_header(name, content)
+    #     response = urllib2.urlopen(request)
+    #     data = response.read()
+    #     logging.debug(url)
+    #     logging.debug(' '.join(data.split()))
+    #     return data
+
+    def _get(self, url, api=None):
         request = urllib2.Request(url=url)
-        request.add_header('Referer', self.referer)
-        if headers:
-            for name, content in headers:
-                request.add_header(name, content)
-        response = urllib2.urlopen(request)
-        data = response.read()
-        logging.debug(url)
-        logging.debug(' '.join(data.split()))
-        return data
+        request.add_header('Referer', 'https://wx.qq.com/')
+        if api == 'webwxgetvoice':
+            request.add_header('Range', 'bytes=0-')
+        if api == 'webwxgetvideo':
+            request.add_header('Range', 'bytes=0-')
+        try:
+            response = urllib2.urlopen(request)
+            data = response.read()
+            logging.debug(url)
+            return data
+        except urllib2.HTTPError, e:
+            logging.error('HTTPError = ' + str(e.code))
+        except urllib2.URLError, e:
+            logging.error('URLError = ' + str(e.reason))
+        except httplib.HTTPException, e:
+            logging.error('HTTPException')
+        except Exception:
+            import traceback
+            logging.error('generic exception: ' + traceback.format_exc())
+        return ''
+
 
     def _post(self, url, params, jsonfmt=True):
         """ http post """

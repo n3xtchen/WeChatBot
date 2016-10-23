@@ -76,7 +76,9 @@ class WeChatDispatch(object):
     def listen_msg_mode(self):
         """ 监听信息 """
         logging.debug('[*] 进入消息监听模式 ... 成功')
-        while True:
+        # while True:
+        self.stop_listen_event = threading.Event()
+        while not self.stop_listen_event.wait(1):
             last_check_ts = time.time()
             [retcode, selector] = self.bot.synccheck()
             logging.debug('retcode: %s, selector: %s', retcode, selector)
@@ -142,8 +144,10 @@ class WeChatDispatch(object):
         self._run('[*] 进行同步线路测试 ... ', self.bot.testsynccheck)
 
         # 启动监听程序
-        self.listen_process = multiprocessing.Process(target=self.listen_msg_mode)
-        self.listen_process.start()
+        # self.listen_process = multiprocessing.Process(target=self.listen_msg_mode)
+        # self.listen_process.start()
+        self.listen_thread = threading.Thread(target=self.listen_msg_mode)
+        self.listen_thread.start()
 
         # 发送信息，在初始化之后，就成常量了
         #   self.BaseRequest
@@ -159,8 +163,10 @@ class WeChatDispatch(object):
 
     def quit(self):
         """ 退出，删除线程进程 """
-        if self.listen_process:
-            self.listen_process.terminate()
+        # if self.listen_process:
+        #     self.listen_process.terminate()
+        self.stop_listen_event.set()
+        self.listen_thread.join()
         # 停止心跳包
         self.stop_beat_event.set()
         self.beat_thread.join()

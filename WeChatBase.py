@@ -38,7 +38,9 @@ SYNC_HOST = [
     'webpush1.wechat.com',
     'webpush2.wechat.com',
     'webpush1.wechatapp.com',
-    # 'webpush.wechatapp.com'
+    'webpush.wechatapp.com',
+    'webpush.wx.qq.com',
+    'webpush.wx2.qq.com'
 ]
 
 SEND_MSG_TYPES = {
@@ -152,7 +154,7 @@ class WebWeChat(RequestWithCookie):
 
     def get_uuid(self):
         """ 获取用户ID """
-        url = 'https://login.weixin.qq.com/jslogin'
+        url = 'https://login.wx.qq.com/jslogin'
         params = {
             'appid': self.appid,
             'fun': 'new',
@@ -358,7 +360,10 @@ class WebWeChat(RequestWithCookie):
         }
         url = 'https://' + self.syncHost + \
             '/cgi-bin/mmwebwx-bin/synccheck?' + urlencode(params)
+        print url
         data = self._get(url)
+        if data == '':
+            return [-1,-1]
         pm = re.search(
             r'window.synccheck={retcode:"(\d+)",selector:"(\d+)"}', data)
         retcode = pm.group(1)
@@ -451,9 +456,9 @@ class WebWeChat(RequestWithCookie):
                        ';q=0.8'),
             'Accept-Language': 'en-US,en;q=0.5',
             'Accept-Encoding': 'gzip, deflate',
-            'Referer': 'https://wx2.qq.com/',
+            'Referer': 'https://wx.qq.com/',
             'Content-Type': multipart_encoder.content_type,
-            'Origin': 'https://wx2.qq.com',
+            'Origin': 'https://wx.qq.com',
             'Connection': 'keep-alive',
             'Pragma': 'no-cache',
             'Cache-Control': 'no-cache'
