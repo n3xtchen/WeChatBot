@@ -25,9 +25,9 @@ from lxml import html
 from WeChatBot.extensions import ChatBot
 from WeChatBot.WeChatDispatch import WeChatDispatch
 
-class WechatPing(WeChatDispatch):
+class WechatEcho(WeChatDispatch):
 
-    def sendMsg(self, word):
+    def send_msg(self, word):
         if self.bot.webwxsendmsg(word, 'filehelper'):
             print self.name, ':[*] 消息发送成功'
             print self.bot.BaseRequest
@@ -35,28 +35,23 @@ class WechatPing(WeChatDispatch):
         else:
             print self.name, ':[*] 消息发送失败'
 
-    def handleMsg(self, retcode, selector, msg):
+    def handle_msg(self, retcode, selector, msg):
         """
         处理信息接口
         """
+        # f.write(json.dumps(msg))
+        for msg in r['AddMsgList']:
+            loging.info('[*] 你有新的消息，请注意查收')
+            msg_id = msg['MsgId']
 
-        if retcode == '1100':
-            print '[*] 你在手机上登出了微信，债见'
-        if retcode == '1101':
-            print '[*] 你在其他地方登录了 WEB 版微信，债见'
-        elif retcode == '0':
-            # 正常
-            if selector == '2':
-                srcName = msg['raw_msg']['FromUserName']
-                dstName = msg['raw_msg']['ToUserName']
-                content = msg['raw_msg']['Content'].replace(
-                    '&lt;', '<').replace('&gt;', '>')
-                message_id = msg['raw_msg']['MsgId']
-                print message_id, srcName, '->', dstName, ':', content
-            elif selector == '6':
-                print '[*] 收到疑似红包消息'
-            elif selector == '7':
-                print '[*] 你在手机上玩微信被我发现了'
+            # 接受媒体信息
+            if msgType == 3:
+                image = self.webwxgetmsgimg(msg_id)
+            elif msgType == 34:
+                voice = self.webwxgetvoice(msg_id)
+            elif msgType in [43, 62]:
+                video = self.webwxgetvideo(msg_id)
+
 
 if __name__ == '__main__':
 
@@ -79,7 +74,7 @@ if __name__ == '__main__':
         print a
         if a.startswith('add'):
             name = 'u'+str(random.randint(1, 10))
-            apps[name] = WechatPing.new_client(name, queue)
+            apps[name] = WechatEcho.new_client(name, queue)
             print name
             continue
         if ':' in a:
@@ -91,7 +86,7 @@ if __name__ == '__main__':
                     apps[name].quit()
                     print name, 'is quit'
                 elif apps[name].status == 1:
-                    apps[name].sendMsg(msg)
+                    apps[name].send_msg(msg)
                 else:
                     print name, ':请等候'
                 print name, msg
