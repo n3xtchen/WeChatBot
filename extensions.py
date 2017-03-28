@@ -31,19 +31,6 @@ class RequestWithCookie(object):
         opener.addheaders = [('User-agent', self.user_agent)]
         urllib2.install_opener(opener)
 
-    # def _get(self, url, headers=None):
-    #     """ http get """
-    #     request = urllib2.Request(url=url)
-    #     request.add_header('Referer', self.referer)
-    #     if headers:
-    #         for name, content in headers:
-    #             request.add_header(name, content)
-    #     response = urllib2.urlopen(request)
-    #     data = response.read()
-    #     logging.debug(url)
-    #     logging.debug(' '.join(data.split()))
-    #     return data
-
     def _get(self, url, api=None):
         request = urllib2.Request(url=url)
         request.add_header('Referer', 'https://wx.qq.com/')
@@ -108,5 +95,3 @@ class ChatBot(object):
             return ans['response']
         else:
             return '你在说什么，风太大听不清列'
-
-
